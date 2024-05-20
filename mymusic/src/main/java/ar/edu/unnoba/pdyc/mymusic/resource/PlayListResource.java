@@ -12,6 +12,8 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -52,12 +54,14 @@ public class PlayListResource{
     }
 
     @POST
-    @Path("/new")
+    @Path("/new") // se le agrego que el usuario tenga que estar loggueado para poder crar la playlist
     @Produces(MediaType.APPLICATION_JSON)
     public Response createPlaylist(@RequestBody PlayListDto playListDto){
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication(); //contexto de seguridad de spring
+        String loggedEmail = (String) auth.getPrincipal();   //email del usuario loggeado
         ModelMapper modelMapper = new ModelMapper();
         Playlist playlist = modelMapper.map(playListDto, Playlist.class);
-        playlistService.create(playlist);
+        playlistService.create(playListDto,loggedEmail);
         playListDto = modelMapper.map(playlist, PlayListDto.class);
         playListDto.setName(playlist.getName());
         playListDto.setId(playlist.getId());
@@ -93,14 +97,15 @@ public class PlayListResource{
         return Response.ok(playlistDto).build(); //cambiar el retorno a songDto
     }
 
-    @DELETE
+    @DELETE // se le agrego que el usuario tenga que estar loggueado para eliminar la cancion
     @Path("/{idP}/songs/{idS}")
     @Transactional
     @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteSong(@PathParam("idP") Long idP, @PathParam("idS")Long idS){
+    public Response deleteSong(@PathParam("idP") Long idP, @PathParam("idS")Long idS) throws Exception {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String loggedEmail = (String) auth.getPrincipal();
         Playlist playlist = playListRepository.findAllById(idP);
-        Song song = songService.getSongId(idS);
-        playlist.getSongs().remove(song);
+        playlistService.deleteSong(idP,idS,loggedEmail);
         ModelMapper modelMapper = new ModelMapper();
         PlayListDto playlistDto = modelMapper.map(playlist, PlayListDto.class);
         playlistDto.setCantidadDeCanciones(playlist.getSongs().size());

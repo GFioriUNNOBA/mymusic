@@ -16,6 +16,17 @@ public class Playlist {
     @JoinTable(name = "playlist_songs")
     private List<Song> songs;
 
+    @ManyToOne(fetch=FetchType.EAGER)
+    private Usuario user;
+
+
+    public Usuario getUser() {
+        return user;
+    }
+
+    public void setUser(Usuario user) {
+        this.user = user;
+    }
 
     public Long getId() {
         return id;
