@@ -80,10 +80,10 @@ public class PlayListServiceImp implements PlayListService {
 
     private Playlist getOwnedPlaylist(Long playlistId, String userEmail) {
         Playlist playlist = playListRepository.findById(playlistId)
-                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist no encontrada"));
 
         if (!playlist.getUser().getEmail().equals(userEmail)) {
-            throw new UnauthorizedException("You are not allowed to modify this playlist");
+            throw new UnauthorizedException("La playlist no se puede modificar porque no es de su autoridad");
         }
 
         return playlist;

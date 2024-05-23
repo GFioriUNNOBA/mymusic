@@ -46,7 +46,7 @@ public class JWTAuthorizationFilter extends BasicAuthenticationFilter {
     private UsernamePasswordAuthenticationToken getAuthentication(HttpServletRequest request) {
         String token = request.getHeader(HEADER_STRING);
         if (token != null) {
-            String userEmail = JWT.require(Algorithm.HMAC256(SECRET.getBytes())) // Asegúrate de usar HMAC512
+            String userEmail = JWT.require(Algorithm.HMAC256(SECRET.getBytes())) // usar HMAC256
                     .build()
                     .verify(token.replace(TOKEN_PREFIX, ""))
                     .getSubject();
