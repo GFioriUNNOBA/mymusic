@@ -7,6 +7,7 @@ import ar.edu.unnoba.pdyc.mymusic.model.Playlist;
 import ar.edu.unnoba.pdyc.mymusic.model.Song;
 import ar.edu.unnoba.pdyc.mymusic.repository.PlayListRepository;
 import ar.edu.unnoba.pdyc.mymusic.service.PlayListService;
+import ar.edu.unnoba.pdyc.mymusic.service.PlayListServiceImp;
 import ar.edu.unnoba.pdyc.mymusic.service.SongService;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
@@ -21,14 +22,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 import java.util.Map;
 
-
-
 @Component
 @Path("/playlists")
 public class PlayListResource{
-
     @Autowired
     private PlayListService playlistService;
+
+    @Autowired
+    private PlayListServiceImp playListServiceImp;
+
 
     @Autowired
     private PlayListRepository playListRepository;
@@ -54,7 +56,7 @@ public class PlayListResource{
     }
 
     @POST
-    @Path("/new") // se le agrego que el usuario tenga que estar loggueado para poder crar la playlist
+    @Path("/new") // se le agrego que el usuario tenga que estar loggueado para poder crear la playlist
     @Produces(MediaType.APPLICATION_JSON)
     public Response createPlaylist(@RequestBody PlayListDto playListDto){
         Authentication auth = SecurityContextHolder.getContext().getAuthentication(); //contexto de seguridad de spring
@@ -68,64 +70,53 @@ public class PlayListResource{
         return Response.ok(playListDto).build();
     }
 
-    @POST
-    @Path("/{idP}/songs")
-    @Transactional //para la list del ManyToMany
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response addSong(@PathParam("idP") Long idP, @RequestBody Map<String, Object> requestBody) {
-        Integer songId = (Integer) requestBody.get("songId");
-        Long songIdLong = songId.longValue();
-
-        Playlist playlist = playListRepository.findById(idP).orElse(null);
-        if (playlist == null) {
-            //playlist no encontrada
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        Song song = songService.getSongId(songIdLong);
-        if (song == null) {
-            //canción no encontrada
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-        List<Song> songList = playlist.getSongs();
-        songList.add(song);
-        playListRepository.save(playlist);
-
-        ModelMapper modelMapper = new ModelMapper();
-        PlayListDto playlistDto = modelMapper.map(playlist, PlayListDto.class);
-        playlistDto.setCantidadDeCanciones(playlist.getSongs().size());
-
-        return Response.ok(playlistDto).build(); //cambiar el retorno a songDto
-    }
-
-    @DELETE // se le agrego que el usuario tenga que estar loggueado para eliminar la cancion
-    @Path("/{idP}/songs/{idS}")
-    @Transactional
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response deleteSong(@PathParam("idP") Long idP, @PathParam("idS")Long idS) throws Exception {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String loggedEmail = (String) auth.getPrincipal();
-        Playlist playlist = playListRepository.findAllById(idP);
-        playlistService.deleteSong(idP,idS,loggedEmail);
-        ModelMapper modelMapper = new ModelMapper();
-        PlayListDto playlistDto = modelMapper.map(playlist, PlayListDto.class);
-        playlistDto.setCantidadDeCanciones(playlist.getSongs().size());
-        return Response.ok(playlistDto).build();
-
-    }
-
     @PUT
-    @Path("/{id}")
     @Transactional
+    @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response updateNamePlaylist(@RequestBody Map<String, Object> requestBody,@PathParam("id") Long id){
-        String playId = (String) requestBody.get("playId");
-        Playlist playlist = playListRepository.findAllById(id);
-        playlist.setName(playId);
-        ModelMapper modelMapper = new ModelMapper();
-        PlayListDto playlistDto = modelMapper.map(playlist, PlayListDto.class);
-        playlistDto.setCantidadDeCanciones(playlist.getSongs().size());
-        return Response.ok(playlistDto).build();
+    public Response updateNamePlaylist(@PathParam("id") Long id, @RequestBody Map<String, Object> requestBody) {
+        String newName = (String) requestBody.get("newName");
+        String loggedEmail = getLoggedUserEmail();
+        playListServiceImp.updatePlaylistName(id, newName, loggedEmail);
+        return Response.ok().build();
     }
+
+    @POST
+    @Transactional
+    @Path("/{id}/songs")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addSong(@PathParam("id") Long id, @RequestBody Map<String, Object> requestBody) {
+        Long songId = ((Number) requestBody.get("songId")).longValue();
+        String loggedEmail = getLoggedUserEmail();
+        playListServiceImp.addSongToPlaylist(id, songId, loggedEmail);
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @Transactional
+    @Path("/{playlistId}/songs/{songId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response removeSong(@PathParam("playlistId") Long playlistId, @PathParam("songId") Long songId) {
+        String loggedEmail = getLoggedUserEmail();
+        playListServiceImp.removeSongFromPlaylist(playlistId, songId, loggedEmail);
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @Transactional
+    @Path("/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deletePlaylist(@PathParam("id") Long id) {
+        String loggedEmail = getLoggedUserEmail();
+        playListServiceImp.deletePlaylist(id, loggedEmail);
+        return Response.ok().build();
+    }
+
+    private String getLoggedUserEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return (String) auth.getPrincipal();
+    }
+
 
     @GET
     @Path("/{idPlay}/songs")
@@ -147,14 +138,6 @@ public class PlayListResource{
         return Response.ok(songDtoList).build();
     }
 
-    @DELETE
-    @Path("/{idPlaylist}")
-    @Transactional
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response deletePlaylist(@PathParam("idPlaylist") Long idPlaylist){
-        playlistService.delete(idPlaylist);
-        return Response.ok(idPlaylist).build();
 
-    }
 
 }

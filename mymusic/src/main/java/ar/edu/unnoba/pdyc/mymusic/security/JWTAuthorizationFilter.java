@@ -43,21 +43,22 @@ public class JWTAuthorizationFilter extends BasicAuthenticationFilter {
         chain.doFilter(request,response); //continuo cadena de filtros
     }
 
-    private  UsernamePasswordAuthenticationToken getAuthentication (HttpServletRequest request){
+    private UsernamePasswordAuthenticationToken getAuthentication(HttpServletRequest request) {
         String token = request.getHeader(HEADER_STRING);
-        if(token != null){
-            //verificar si el token es valido
-            String userEmail = JWT.require(Algorithm.HMAC512(SECRET.getBytes()))
+        if (token != null) {
+            String userEmail = JWT.require(Algorithm.HMAC256(SECRET.getBytes())) // Asegúrate de usar HMAC512
                     .build()
-                    .verify(token.replace(TOKEN_PREFIX,""))
-                    .getSubject();  //si el verify se cumple, obtiene el email
-            if(userEmail != null){
-                return new UsernamePasswordAuthenticationToken(userEmail,null,new ArrayList<>());
+                    .verify(token.replace(TOKEN_PREFIX, ""))
+                    .getSubject();
+
+            if (userEmail != null) {
+                return new UsernamePasswordAuthenticationToken(userEmail, null, new ArrayList<>());
             }
             return null;
         }
         return null;
     }
+
 
 }
 

@@ -1,6 +1,8 @@
 package ar.edu.unnoba.pdyc.mymusic.service;
 
 import ar.edu.unnoba.pdyc.mymusic.dto.PlayListDto;
+import ar.edu.unnoba.pdyc.mymusic.exception.ResourceNotFoundException;
+import ar.edu.unnoba.pdyc.mymusic.exception.UnauthorizedException;
 import ar.edu.unnoba.pdyc.mymusic.model.Playlist;
 import ar.edu.unnoba.pdyc.mymusic.model.Song;
 import ar.edu.unnoba.pdyc.mymusic.model.Usuario;
@@ -21,44 +23,70 @@ import java.util.Optional;
 public class PlayListServiceImp implements PlayListService {
     private final PlayListRepository playListRepository;
     private final SongRepository songRepository;
-    private final UserRepository userRepository;
 
+    private final SongService songService;
+    private final UserRepository userRepository;
     @Autowired
-    public PlayListServiceImp(PlayListRepository playListRepository, SongRepository songRepository, UserRepository userRepository) {
+    public PlayListServiceImp(PlayListRepository playListRepository, SongRepository songRepository, SongService songService, UserRepository userRepository) {
         this.playListRepository = playListRepository;
         this.songRepository = songRepository;
+        this.songService = songService;
         this.userRepository = userRepository;
-    }
-
-
-
-    @Override
-    public Playlist create(PlayListDto playListDto, String mail) {
-        Usuario userLogged = userRepository.findByEmail(mail);
-        Playlist playlist = new Playlist();
-        playlist.setName(playListDto.getName());
-        playlist.setUser(userLogged);
-        playListRepository.save(playlist);
-        return playlist;
     }
 
     @Override
     public void delete(Long id) {
-        playListRepository.deleteById(id);
 
     }
 
     @Override
     public void deleteSong(long idPlaylist, long idSong, String loggedEmail) throws Exception {
-        Usuario userLogged = userRepository.findByEmail(loggedEmail);
-        Playlist playlistBD = playListRepository.findById(idPlaylist).get();
-        Usuario ownerPlaylist = userRepository.findById(playlistBD.getUser().getId()).get();
-        if(ownerPlaylist.equals(userLogged)){
-            playListRepository.deleteById(idPlaylist);
-            songRepository.deleteById(idSong);
-        } else {
-            throw new Exception("no podes borrar una cancion a una playlist de la que no sos el dueño");
+
+    }
+
+
+    public Playlist create(PlayListDto playListDto, String userEmail) {
+        Usuario user = userRepository.findByEmail(userEmail);
+        Playlist playlist = new Playlist();
+        playlist.setName(playListDto.getName());
+        playlist.setUser(user);
+        return playListRepository.save(playlist);
+    }
+
+    public void updatePlaylistName(Long playlistId, String newName, String userEmail) {
+        Playlist playlist = getOwnedPlaylist(playlistId, userEmail);
+        playlist.setName(newName);
+        playListRepository.save(playlist);
+    }
+
+    public void addSongToPlaylist(Long playlistId, Long songId, String userEmail) {
+        Playlist playlist = getOwnedPlaylist(playlistId, userEmail);
+        Song song = songRepository.findSongById(songId);
+        playlist.getSongs().add(song);
+        playListRepository.save(playlist);
+    }
+
+    public void removeSongFromPlaylist(Long playlistId, Long songId, String userEmail) {
+        Playlist playlist = getOwnedPlaylist(playlistId, userEmail);
+        Song song = songService.getSongId(songId);
+        playlist.getSongs().remove(song);
+        playListRepository.save(playlist);
+    }
+
+    public void deletePlaylist(Long playlistId, String userEmail) {
+        Playlist playlist = getOwnedPlaylist(playlistId, userEmail);
+        playListRepository.delete(playlist);
+    }
+
+    private Playlist getOwnedPlaylist(Long playlistId, String userEmail) {
+        Playlist playlist = playListRepository.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        if (!playlist.getUser().getEmail().equals(userEmail)) {
+            throw new UnauthorizedException("You are not allowed to modify this playlist");
         }
+
+        return playlist;
     }
 
     @Override

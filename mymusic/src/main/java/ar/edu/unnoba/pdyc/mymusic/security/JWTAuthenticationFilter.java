@@ -17,13 +17,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
+import static ar.edu.unnoba.pdyc.mymusic.security.SecurityConstants.EXPIRATION_TIME;
+import static ar.edu.unnoba.pdyc.mymusic.security.SecurityConstants.SECRET;
+
 public class JWTAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
     private AuthenticationManager authenticationManager;
 
     public JWTAuthenticationFilter(AuthenticationManager authenticationManager) {
         this.authenticationManager = authenticationManager;
 
-        setFilterProcessesUrl("/login");
+        setFilterProcessesUrl("/auth");
     }
 
     @Override
@@ -46,12 +49,17 @@ public class JWTAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 
     @Override
     protected void successfulAuthentication(HttpServletRequest req, HttpServletResponse res, FilterChain chain, Authentication auth) throws IOException {
+        String email = auth.getName();
         String token = JWT.create()
-                .withSubject(((Usuario) auth.getPrincipal()).getEmail()).toString();
+                .withSubject(email)
+                .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .sign(Algorithm.HMAC256(SECRET.getBytes())); // Asegúrate de usar HMAC512
 
-        String body = ((Usuario) auth.getPrincipal()).getEmail() + " " + token;
-
-        res.getWriter().write(body);
+        res.getWriter().write(token);
         res.getWriter().flush();
+        System.out.println("Generated Token: " + token);
+
     }
+
+
 }
